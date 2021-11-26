@@ -1,0 +1,99 @@
+#!/usr/bin/env ts-node-script
+import * as fs from 'fs'
+import * as util  from 'util';
+import gitDateExtractor from 'git-date-extractor';
+import zlib from 'zlib';
+
+/*
+<script>
+      window.dandy = { content: %REACT_APP_SITE%};
+    </script>
+    
+*/
+
+interface MdFiles {
+  build?: number,
+  files: Markdown[],
+}
+
+interface Markdown {
+  url: string, 
+  name: string, 
+  content: string,
+  build: GitDates
+}
+
+interface GitDates {
+  created: number,
+  modified: number
+}
+
+
+const readdir: (dirName: string) => Promise<string[]> = (dirName) => {
+  return util.promisify(fs.readdir)(dirName);
+};
+
+async function load(rootDir: string) {  
+  const stamps: Record<string, GitDates> = await gitDateExtractor.getStamps({
+    outputToFile: false,
+    projectRootPath: __dirname
+  }) as Record<string, GitDates>;
+  
+
+  const files: Markdown[] = [];
+  
+  const topicsDirs = await readdir(rootDir)
+    .then(next => next.map(n => rootDir + "/" + n));
+  for(const topicDir of topicsDirs) {
+    const topics = await readdir(topicDir)
+      .then(next => next
+        .filter(n => n.endsWith(".md"))
+        .map(n => topicDir + "/" + n));
+     
+    topics.forEach(name => {
+      
+      // add build and push it into result
+      files.push({
+        build: stamps[name.substring(6)],
+        url: name, 
+        name: name.substring(rootDir.length+1), 
+        content: fs.readFileSync(name, "UTF-8")
+      });    
+      
+        
+    });
+  }
+  return files;
+}
+
+const logging = console.log;
+console.log = function() {};
+
+let result;
+load("./src/markdown")
+  .then(data => {
+    result = data;
+  })
+  .catch(err => {
+    console.error(err);
+    result = "failed to read data: " + err;
+  });
+
+while(result === undefined) {
+  require('deasync').runLoopOnce();
+}
+
+const site: MdFiles = {
+  build: Math.floor(Date.now()/1000),
+  files: result
+};
+
+const json = JSON.stringify(site);
+const compress = zlib.deflateSync(json).toString('base64');
+
+console.log = logging;
+logging(compress);
+
+//var inflated = zlib.inflateSync(Buffer.from(compress, 'base64')).toString();
+
+
