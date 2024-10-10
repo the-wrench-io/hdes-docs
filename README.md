@@ -1,3 +1,6 @@
+# This repository has been deprecated and is no longer maintained.
+Codebase has been moved and is now maintained in https://github.com/digiexpress-io/digiexpress-parent
+
 ## theWrench Documentation
 
 React-Typescript documentation app styled with Material UI and parsing/rendering Markdown files with dandy-doc library.
